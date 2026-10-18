@@ -13,6 +13,8 @@ import (
 func TestBuildConfigFakeDNSWithIPv4OnlyBootstrapStarts(t *testing.T) {
 	opts := DefaultHiddifyOptions()
 	opts.EnableClashApi = false
+	opts.LogFile = ""
+	opts.ConnectionTestUrls = []string{"http://192.0.2.20/generate_204"}
 	opts.EnableFakeDNS = true
 	opts.DirectDnsAddress = "local"
 	opts.DirectDnsDomainStrategy = option.DomainStrategy(C.DomainStrategyIPv4Only)
@@ -40,6 +42,8 @@ func TestBuildConfigDNSStrategyCompatibility(t *testing.T) {
 				t.Run(fmt.Sprintf("fake=%t/region=%s/strategy=%d", fakeDNS, region, strategy), func(t *testing.T) {
 					opts := DefaultHiddifyOptions()
 					opts.EnableClashApi = false
+					opts.LogFile = ""
+					opts.ConnectionTestUrls = []string{"http://192.0.2.20/generate_204"}
 					opts.EnableFakeDNS = fakeDNS
 					opts.Region = region
 					opts.DirectDnsAddress = "local"
