@@ -125,7 +125,12 @@ func StartService(ctx context.Context, in *StartRequest) (coreResponse *CoreInfo
 	static.lock.Lock()
 	defer static.lock.Unlock()
 	if err := contextErr(ctx); err != nil {
-		return cancelledStart(err)
+		// This request has not entered STARTING; leave any existing service and state unchanged.
+		return &CoreInfoResponse{
+			CoreState:   static.CoreState,
+			MessageType: MessageType_INSTANCE_NOT_STARTED,
+			Message:     "start cancelled",
+		}, err
 	}
 	return startServiceLocked(ctx, in)
 }
@@ -197,7 +202,7 @@ func startServiceLocked(ctx context.Context, in *StartRequest) (coreResponse *Co
 	if err := contextErr(ctx); err != nil {
 		return cancelledStart(err)
 	}
-	libbox.SetMemoryLimit(C.IsIos || !in.DisableMemoryLimit)
+	configureRuntimeMemoryLimit(C.IsIos, in.DisableMemoryLimit)
 	instance, err := NewService(ctx, *options)
 	if err != nil {
 		return errorWrapper(MessageType_START_SERVICE, err)

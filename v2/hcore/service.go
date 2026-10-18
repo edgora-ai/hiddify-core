@@ -7,6 +7,7 @@ import (
 
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/common/urltest"
+	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/daemon"
 	"github.com/sagernet/sing-box/experimental/clashapi"
 	"github.com/sagernet/sing-box/experimental/clashapi/trafficontrol"
@@ -19,17 +20,7 @@ import (
 func NewService(ctx context.Context, options option.Options) (*daemon.StartedService, error) {
 
 	// ctx = filemanager.WithDefault(ctx, sWorkingPath, sTempPath, sUserID, sGroupID)
-	logInterface := LogInterface{}
-	bopts := daemon.ServiceOptions{
-		Context:     ctx,
-		Debug:       static.debug,
-		LogMaxLines: 100,
-		// Options:           *options,
-		Handler: &logInterface,
-		ExtraServices: []adapter.LifecycleService{
-			&hiddifyMainServiceManager{},
-		},
-	}
+	bopts := newServiceOptions(ctx, C.IsIos)
 	err := libbox.CheckConfigOptions(&options)
 	if err != nil {
 		return nil, err
@@ -57,6 +48,19 @@ func NewService(ctx context.Context, options option.Options) (*daemon.StartedSer
 	// }
 
 	return instance, nil
+}
+
+func newServiceOptions(ctx context.Context, isIOS bool) daemon.ServiceOptions {
+	return daemon.ServiceOptions{
+		Context:          ctx,
+		Debug:            static.debug,
+		LogMaxLines:      100,
+		OOMKillerEnabled: isIOS,
+		Handler:          &LogInterface{},
+		ExtraServices: []adapter.LifecycleService{
+			&hiddifyMainServiceManager{},
+		},
+	}
 }
 
 func (h *HiddifyInstance) UrlTestHistory() *urltest.HistoryStorage {
