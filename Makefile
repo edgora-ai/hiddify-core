@@ -18,6 +18,15 @@ WINDOWS_ADD_TAGS=with_purego
 # Optional build-time secrets (GitHub Actions): HIDDIFY_SECRET_KEY (base64 AES-256 key) is embedded,
 # and PSIPHON_CONFIG (Psiphon config, JSON or base64) is embedded encrypted with it (config "hiddify").
 EMBED_LDFLAGS=
+# Keep the local-only entry out of the legacy parse-time encryption command.
+ifneq ($(filter ios-local,$(MAKECMDGOALS)),)
+ifneq ($(words $(MAKECMDGOALS)),1)
+$(error ios-local must be invoked by itself)
+endif
+ifneq ($(strip $(HIDDIFY_SECRET_KEY)$(PSIPHON_CONFIG)),)
+$(error ios-local requires HIDDIFY_SECRET_KEY and PSIPHON_CONFIG to be unset)
+endif
+else
 ifneq ($(strip $(HIDDIFY_SECRET_KEY)),)
 EMBED_LDFLAGS+=-X github.com/sagernet/sing-box/hiddify/secret.Key=$(strip $(HIDDIFY_SECRET_KEY))
 ifneq ($(strip $(PSIPHON_CONFIG)),)
@@ -26,6 +35,7 @@ ifeq ($(PSIPHON_CONFIG_ENCRYPTED),)
 $(error failed to encrypt PSIPHON_CONFIG)
 endif
 EMBED_LDFLAGS+=-X github.com/sagernet/sing-box/protocol/psiphon.embeddedHiddifyConfig=$(PSIPHON_CONFIG_ENCRYPTED)
+endif
 endif
 endif
 LDFLAGS=-w -s -checklinkname=0 -buildid= $${CODE_VERSION} $(EMBED_LDFLAGS)
@@ -69,6 +79,59 @@ ios: lib_install
 	gomobile bind -v  -target ios -libname=hiddify-core -tags=$(TAGS),$(IOS_ADD_TAGS) -trimpath -ldflags="$(LDFLAGS)" -o $(BINDIR)/HiddifyCore.xcframework github.com/sagernet/sing-box/experimental/libbox ./platform/mobile
 	cp Info.plist $(BINDIR)/HiddifyCore.xcframework/
 
+
+# Local, offline, device-only build; no lib_install/prepare/tidy/npm or downloads.
+# After native dependencies are provisioned and a bind is separately authorized:
+#   env -u HIDDIFY_SECRET_KEY -u PSIPHON_CONFIG make ios-local \
+#     IOS_LOCAL_GO=/absolute/private/go1.26.3/bin/go \
+#     IOS_LOCAL_ROOT=/absolute/existing/private/core-attempt
+# ROOT layout: tools/bin/{gomobile,gobind} prebuilt at v0.1.12; gopath/;
+# cache/{go-mod,go-build,clang,xdg}/; tmp/; home/; out/HiddifyCore.xcframework.
+# Populate the private module/native caches beforehand; missing inputs fail offline.
+# out/ must not exist. Failed/partial output is retained; choose a new attempt root.
+# Keep gomobile's generated Info.plist, not the legacy simulator/iOS 15.0 manifest.
+# Native dependency/linkage completeness is NOT established by this entry's checks.
+export IOS_LOCAL_GO IOS_LOCAL_ROOT
+.PHONY: ios-local
+ios-local:
+	@set -eu; \
+	fail() { printf 'ios-local: %s\n' "$$*" >&2; exit 1; }; \
+	case "$${IOS_LOCAL_ROOT:-}" in /*) ;; *) fail 'IOS_LOCAL_ROOT must be an absolute private directory';; esac; \
+	[ -d "$$IOS_LOCAL_ROOT" ] || fail 'IOS_LOCAL_ROOT must already exist'; \
+	root=$$(CDPATH= cd "$$IOS_LOCAL_ROOT" && pwd -P); \
+	case "$${IOS_LOCAL_GO:-}" in /*) ;; *) fail 'IOS_LOCAL_GO must be an absolute Go 1.26.3 executable';; esac; \
+	[ -x "$$IOS_LOCAL_GO" ] || fail 'IOS_LOCAL_GO is not executable'; \
+	out="$$root/out"; \
+	[ ! -e "$$out" ] && [ ! -L "$$out" ] || fail 'out already exists; refusing to overwrite it'; \
+	for dir in tools tools/bin gopath gopath/pkg gopath/pkg/gomobile cache cache/go-mod cache/go-build cache/clang cache/xdg tmp home; do \
+		[ ! -L "$$root/$$dir" ] || fail "private directory must not be a symlink: $$dir"; \
+	done; \
+	for tool in gomobile gobind; do \
+		[ -f "$$root/tools/bin/$$tool" ] && [ -x "$$root/tools/bin/$$tool" ] && [ ! -L "$$root/tools/bin/$$tool" ] || fail "missing private executable: $$tool"; \
+	done; \
+	grep -Eq '^go 1[.]26[.]3$$' go.mod || fail 'go.mod must declare Go 1.26.3'; \
+	grep -Eq '^[[:space:]]*github[.]com/sagernet/gomobile[[:space:]]+v0[.]1[.]12([[:space:]]|$$)' go.mod || fail 'go.mod must pin gomobile v0.1.12'; \
+	umask 077; \
+	export HOME="$$root/home" GOPATH="$$root/gopath" GOBIN="$$root/tools/bin"; \
+	export GOMODCACHE="$$root/cache/go-mod" GOCACHE="$$root/cache/go-build"; \
+	export GOTMPDIR="$$root/tmp" TMPDIR="$$root/tmp" TMP="$$root/tmp" TEMP="$$root/tmp"; \
+	export CLANG_MODULE_CACHE_PATH="$$root/cache/clang" XDG_CACHE_HOME="$$root/cache/xdg"; \
+	export GOTOOLCHAIN=local GOFLAGS=-mod=readonly GOENV=off GOWORK=off GOTELEMETRY=off GOCACHEPROG=; \
+	export GOPROXY=off GOSUMDB=off GOVCS='*:off' GOAUTH=off; \
+	export IPHONEOS_DEPLOYMENT_TARGET=15.5 CODE_VERSION="$${CODE_VERSION:-}"; \
+	unset GOROOT GOOS GOARCH GOARM GOAMD64 GOMIPS GOMIPS64; \
+	export PATH="$$GOBIN:$$(dirname "$$IOS_LOCAL_GO"):$$PATH"; \
+	[ "$$(command -v go)" = "$$IOS_LOCAL_GO" ] || fail 'PATH go must resolve to IOS_LOCAL_GO'; \
+	mkdir -p "$$HOME" "$$GOPATH" "$$GOMODCACHE" "$$GOCACHE" "$$GOTMPDIR" "$$CLANG_MODULE_CACHE_PATH" "$$XDG_CACHE_HOME"; \
+	[ "$$("$$IOS_LOCAL_GO" env GOVERSION)" = go1.26.3 ] || fail 'Go version must be exactly go1.26.3'; \
+	for tool in gomobile gobind; do \
+		info=$$("$$IOS_LOCAL_GO" version -m "$$GOBIN/$$tool"); \
+		printf '%s\n' "$$info" | grep -Eq "^[[:space:]]*path[[:space:]]+github[.]com/sagernet/gomobile/cmd/$$tool$$" || fail "unexpected tool path: $$tool"; \
+		printf '%s\n' "$$info" | grep -Eq '^[[:space:]]*mod[[:space:]]+github[.]com/sagernet/gomobile[[:space:]]+v0[.]1[.]12([[:space:]]|$$)' || fail "$$tool must be gomobile v0.1.12"; \
+		if printf '%s\n' "$$info" | grep -Eq '^[[:space:]]*=>'; then fail "replaced tool modules are not allowed: $$tool"; fi; \
+	done; \
+	mkdir "$$out" || fail 'cannot reserve new output directory'; \
+	"$$GOBIN/gomobile" bind -v -target ios -iosversion=15.5 -libname=hiddify-core -tags=$(TAGS),$(IOS_ADD_TAGS) -trimpath -ldflags="$(LDFLAGS)" -o "$$out/HiddifyCore.xcframework" github.com/sagernet/sing-box/experimental/libbox ./platform/mobile
 
 webui:
 	curl -L -o webui.zip  https://github.com/hiddify/Yacd-meta/archive/gh-pages.zip 

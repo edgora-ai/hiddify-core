@@ -30,6 +30,9 @@ type HiddifyOptions struct {
 	TLSTricks TLSTricks   `json:"tls-tricks,omitempty"`
 	EnableNTP bool        `json:"enable-ntp,omitempty"`
 
+	// Explicit app/profile opt-in, not overridable by subscription headers.
+	PreserveDomainForFallbackProxy bool `json:"preserve-domain-for-fallback-proxy,omitempty"`
+
 	DNSOptions
 	InboundOptions
 	URLTestOptions

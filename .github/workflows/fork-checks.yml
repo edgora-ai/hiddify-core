@@ -1,0 +1,55 @@
+name: Fork source checks
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  source:
+    if: ${{ github.repository != 'hiddify/hiddify-core' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GOTOOLCHAIN: local
+      GOENV: 'off'
+      GOTELEMETRY: 'off'
+      HIDDIFY_SECRET_KEY: ''
+      PSIPHON_CONFIG: ''
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.3'
+          cache: false
+      - name: Parse tracked Core Go sources without compiling
+        shell: bash
+        run: |
+          set -euo pipefail
+          count=0
+          while IFS= read -r -d '' file; do
+            if [[ -L "$file" ]]; then
+              printf 'Refusing to follow Go source symlink: %s\n' "$file" >&2
+              exit 1
+            fi
+            gofmt -e "$file" > /dev/null
+            count=$((count + 1))
+          done < <(git ls-files -z -- '*.go')
+          test "$count" -gt 0
+          printf 'Parsed %s tracked Core Go files\n' "$count"
+      - name: Check local iOS entry with fake tools only
+        run: python3 -B scripts/test_ios_local.py
+      - name: State coverage boundary
+        run: |
+          printf '%s\n' \
+            'Source syntax and fake build-entry checks only; formatting is not enforced.' \
+            'No submodule, dependency resolution, Go compilation/test, native linkage or iOS bind coverage.' \
+            'Real Go regressions and the separately authorized iOS bind must run outside this workflow.'

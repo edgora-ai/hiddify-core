@@ -143,7 +143,7 @@ func startServiceLocked(ctx context.Context, in *StartRequest) (coreResponse *Co
 	if in.DelayStart {
 		<-time.After(1000 * time.Millisecond)
 	}
-	libbox.SetMemoryLimit(C.IsIos || !in.DisableMemoryLimit)
+	configureRuntimeMemoryLimit(C.IsIos, in.DisableMemoryLimit)
 	instance, err := NewService(ctx, *options)
 	if err != nil {
 		return errorWrapper(MessageType_START_SERVICE, err)

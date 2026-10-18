@@ -204,6 +204,8 @@ func addForceDirect(options *option.Options, hopt *HiddifyOptions) ([]option.Def
 	// }
 
 	// // dnsMap[]
+	// Keep address-family preferences on Route.DefaultDomainResolver. DNS rule
+	// action strategies cannot be combined with the Fake IP query_type rule.
 	forceDirectRules := []option.DefaultDNSRule{}
 	// if len(dnsMap) > 0 {
 	// 	unique_dns_detours := make(map[string]bool)
@@ -259,7 +261,6 @@ func addForceDirect(options *option.Options, hopt *HiddifyOptions) ([]option.Def
 				RouteOptions: option.DNSRouteActionOptions{
 					Server: DNSRemoteNoWarpTag,
 					AbstractDNSRouteActionOptions: option.AbstractDNSRouteActionOptions{
-						Strategy:       hopt.DirectDnsDomainStrategy,
 						BypassIfFailed: false,
 						RewriteTTL:     &DEFAULT_DNS_TTL,
 					},
@@ -294,7 +295,6 @@ func addForceDirect(options *option.Options, hopt *HiddifyOptions) ([]option.Def
 					RouteOptions: option.DNSRouteActionOptions{
 						Server: DNSMultiDirectTag,
 						AbstractDNSRouteActionOptions: option.AbstractDNSRouteActionOptions{
-							Strategy:       hopt.DirectDnsDomainStrategy,
 							RewriteTTL:     &DEFAULT_DNS_TTL,
 							BypassIfFailed: false,
 						},
@@ -426,6 +426,14 @@ func getDNSServerOptions(tag string, dnsurl string, domain_resolver string, deto
 				},
 			},
 		},
+	}
+	if remoteOptions.Detour != "" && detour == OutboundMainDetour &&
+		(serverType == C.DNSTypeHTTPS || serverType == C.DNSTypeTLS) &&
+		serverURL != nil && serverURL.Hostname() != "" {
+		if _, err := netip.ParseAddr(serverURL.Hostname()); err != nil {
+			// Let the main proxy dial the DNS hostname instead of resolving it through direct DNS.
+			remoteOptions.DomainResolver = nil
+		}
 	}
 	o := option.DNSServerOptions{
 		Tag: tag,

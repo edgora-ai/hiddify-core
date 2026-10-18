@@ -656,6 +656,9 @@ func setRoutingOptions(options *option.Options, hopt *HiddifyOptions) error {
 		DefaultOptions: option.DefaultRule{
 			RuleAction: option.RuleAction{
 				Action: C.RuleActionTypeSniff,
+				SniffOptions: option.RouteActionSniff{
+					PreserveDomainForFallbackProxy: hopt.PreserveDomainForFallbackProxy && !hopt.EnableFakeDNS,
+				},
 			},
 		},
 	})
@@ -789,7 +792,6 @@ func setRoutingOptions(options *option.Options, hopt *HiddifyOptions) error {
 				RouteOptions: option.DNSRouteActionOptions{
 					Server: DNSMultiDirectTag,
 					AbstractDNSRouteActionOptions: option.AbstractDNSRouteActionOptions{
-						Strategy:       hopt.DirectDnsDomainStrategy,
 						RewriteTTL:     &DEFAULT_DNS_TTL,
 						DisableCache:   false,
 						BypassIfFailed: false,
@@ -925,7 +927,6 @@ func setRoutingOptions(options *option.Options, hopt *HiddifyOptions) error {
 				RouteOptions: option.DNSRouteActionOptions{
 					Server: DNSMultiDirectTag,
 					AbstractDNSRouteActionOptions: option.AbstractDNSRouteActionOptions{
-						Strategy:       hopt.DirectDnsDomainStrategy,
 						RewriteTTL:     &DEFAULT_DNS_TTL,
 						BypassIfFailed: false,
 					},
@@ -959,7 +960,6 @@ func setRoutingOptions(options *option.Options, hopt *HiddifyOptions) error {
 				RouteOptions: option.DNSRouteActionOptions{
 					Server: DNSMultiDirectTag,
 					AbstractDNSRouteActionOptions: option.AbstractDNSRouteActionOptions{
-						Strategy:       hopt.DirectDnsDomainStrategy,
 						RewriteTTL:     &DEFAULT_DNS_TTL,
 						BypassIfFailed: false,
 					},
