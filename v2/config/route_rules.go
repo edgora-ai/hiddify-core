@@ -38,9 +38,8 @@ func (r RouteRuleOptions) MarshalJSON() ([]byte, error) {
 // remote rule-sets they use. A rule-set URL may hold "{region}"; it is dropped while the region is
 // unset or "other", and a rule left without any condition is dropped too (it would match everything).
 type appRouteRules struct {
-	region   string
-	fakeDNS  bool
-	strategy option.DomainStrategy
+	region  string
+	fakeDNS bool
 
 	routeRules []option.Rule
 	dnsRules   []option.DefaultDNSRule
@@ -53,7 +52,6 @@ func buildAppRouteRules(hopt *HiddifyOptions) *appRouteRules {
 	b := &appRouteRules{
 		region:   hopt.Region,
 		fakeDNS:  hopt.EnableFakeDNS,
-		strategy: hopt.DirectDnsDomainStrategy,
 		tagByURL: map[string]string{},
 		usedTags: map[string]bool{},
 	}
@@ -179,8 +177,9 @@ func (b *appRouteRules) addDNSRule(rule *Rule, raw option.RawDefaultRule, dnsRul
 			Action: C.RuleActionTypeRoute,
 			RouteOptions: option.DNSRouteActionOptions{
 				Server: DNSMultiDirectTag,
+				// Keep address-family preferences on Route.DefaultDomainResolver;
+				// a DNS action strategy conflicts with Fake-IP query_type rules.
 				AbstractDNSRouteActionOptions: option.AbstractDNSRouteActionOptions{
-					Strategy:   b.strategy,
 					RewriteTTL: &DEFAULT_DNS_TTL,
 				},
 			},

@@ -125,7 +125,12 @@ func StartService(ctx context.Context, in *StartRequest) (coreResponse *CoreInfo
 	static.lock.Lock()
 	defer static.lock.Unlock()
 	if err := contextErr(ctx); err != nil {
-		return cancelledStart(err)
+		// This request has not entered STARTING; leave any existing service and state unchanged.
+		return &CoreInfoResponse{
+			CoreState:   static.CoreState,
+			MessageType: MessageType_INSTANCE_NOT_STARTED,
+			Message:     "start cancelled",
+		}, err
 	}
 	return startServiceLocked(ctx, in)
 }
