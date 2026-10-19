@@ -73,7 +73,8 @@ class IosLocalTests(unittest.TestCase):
         makefile = (CORE / "Makefile").read_text()
         tags = [re.search(rf"^{name}=(.+)$", makefile, re.M)[1] for name in ("TAGS", "IOS_ADD_TAGS")]
         self.assertIn("-tags=" + ",".join(tags), args)
-        self.assertEqual(args[args.index("-target") + 1], "ios")
+        self.assertEqual(args.count("-target"), 1)
+        self.assertEqual(args[args.index("-target") + 1], "ios/arm64")
         self.assertIn("-iosversion=15.5", args)
         self.assertIn("-libname=hiddify-core", args)
         self.assertIn("-trimpath", args)
