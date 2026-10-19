@@ -131,7 +131,7 @@ ios-local:
 		if printf '%s\n' "$$info" | grep -Eq '^[[:space:]]*=>'; then fail "replaced tool modules are not allowed: $$tool"; fi; \
 	done; \
 	mkdir "$$out" || fail 'cannot reserve new output directory'; \
-	"$$GOBIN/gomobile" bind -v -target ios -iosversion=15.5 -libname=hiddify-core -tags=$(TAGS),$(IOS_ADD_TAGS) -trimpath -ldflags="$(LDFLAGS)" -o "$$out/HiddifyCore.xcframework" github.com/sagernet/sing-box/experimental/libbox ./platform/mobile
+	"$$GOBIN/gomobile" bind -v -target ios/arm64 -iosversion=15.5 -libname=hiddify-core -tags=$(TAGS),$(IOS_ADD_TAGS) -trimpath -ldflags="$(LDFLAGS)" -o "$$out/HiddifyCore.xcframework" github.com/sagernet/sing-box/experimental/libbox ./platform/mobile
 
 webui:
 	curl -L -o webui.zip  https://github.com/hiddify/Yacd-meta/archive/gh-pages.zip 
